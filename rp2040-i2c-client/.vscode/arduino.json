@@ -1,0 +1,6 @@
+{
+    "sketch": "rp2040-i2c-client.ino",
+    "output": "build",
+    "board": "arduino:mbed_rp2040:pico",
+    "port": "/dev/ttyACM1"
+}
