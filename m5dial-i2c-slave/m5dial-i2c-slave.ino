@@ -2,25 +2,25 @@
 #include <Wire.h>
 
 #define I2C_SLAVE_ADDRESS 0x0A
-
 #define I2C_BUF_SIZE 5
 
-volatile uint8_t i2c_buf[I2C_BUF_SIZE];
+#define TESTING 0
 
-void clear_i2c_buf()
-{
-    i2c_buf[0] = 0;
-    i2c_buf[1] = 0;
-    i2c_buf[2] = 0;
-    i2c_buf[3] = 0;
-}
+#define MULTIPLE 2
+
+volatile uint8_t i2c_buf[I2C_BUF_SIZE] = {0, 0, 0, 0, 0};
 
 void set_move_size(uint16_t step_dx, uint16_t step_dy)
 {
+    step_dx *= MULTIPLE;
+    step_dy *= MULTIPLE;
+
     int16_t total_dx = (int16_t)i2c_buf[0] - (int16_t)i2c_buf[1] + (step_dx);
     int16_t total_dy = (int16_t)i2c_buf[2] - (int16_t)i2c_buf[3] + (step_dy);
 
+#if TESTING > 0
     Serial.println("total: " + String(total_dx) + "," + String(total_dy));
+#endif
 
     if (total_dx <= -0xff)
     {
@@ -67,12 +67,15 @@ void set_move_size(uint16_t step_dx, uint16_t step_dy)
 
 void setup()
 {
+
+#if TESTING > 0
     Serial.begin(115200);
+    Serial.write("M5Dial I2C Slave\n");
+#else
     Wire.begin(I2C_SLAVE_ADDRESS, G13, G15, 400000);
     Wire.onReceive(receiveEvent);
     Wire.onRequest(sendEvent);
-
-    clear_i2c_buf();
+#endif
 
     auto cfg = M5.config();
     M5Dial.begin(cfg, true, false);
@@ -90,6 +93,7 @@ bool touched = false;
 bool first_move = false;
 
 int t = 0;
+int loop_num = 0;
 
 void loop()
 {
@@ -104,7 +108,9 @@ void loop()
             "___", "hold", "hold_end", "hold_begin",
             "___", "flick", "flick_end", "flick_begin",
             "___", "drag", "drag_end", "drag_begin"};
+#if TESTING > 0
         Serial.println(state_name[t.state]);
+#endif
         if (t.state == m5::touch_state_t::none)
         {
             M5Dial.Display.fillRect(0, 0, 240, 240, BLACK);
@@ -122,13 +128,11 @@ void loop()
         if (first_move)
         {
             first_move = false;
-            Serial.println("FIRST MOVE");
             prev_x = t.x;
             prev_y = t.y;
         }
         else
         {
-            // Serial.println("C:" + String(t.x) + "," + String(t.y) + " / D: " + String(t.x - prev_x) + "," + String(t.y - prev_y) + " P:" + String(prev_x) + "," + String(prev_y));
             int16_t dx = t.x - prev_x;
             int16_t dy = t.y - prev_y;
             set_move_size(dx, dy);
@@ -143,7 +147,15 @@ void loop()
     if (newPosition != oldPosition)
     {
         oldPosition = newPosition;
-        Serial.println(newPosition);
+    }
+
+    if (M5Dial.BtnA.isPressed())
+    {
+        i2c_buf[4] = 0x80;
+    }
+    else
+    {
+        i2c_buf[4] = 0x00;
     }
 }
 
@@ -163,20 +175,23 @@ void sendEvent()
     int n = 0;
     int i;
 
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 4; i++)
     {
-        Wire.write(i2c_buf[i]);
-        n += i2c_buf[i];
-    }
-    if (n > 0)
-    {
-        Serial.printf("write: ");
-        for (i = 0; i < 5; i++)
+        if (i2c_buf[i] > 10)
         {
-            Serial.print(i2c_buf[i], HEX);
-            Serial.print(" ");
+            Wire.write(2);
+            i2c_buf[i] -= 2;
         }
-        Serial.println();
+        else if (i2c_buf[i] > 0)
+        {
+            Wire.write(1);
+            i2c_buf[i]--;
+            n++;
+        }
+        else
+        {
+            Wire.write(0);
+        }
     }
-    clear_i2c_buf();
+    Wire.write(i2c_buf[4]);
 }
