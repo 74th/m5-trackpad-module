@@ -13,13 +13,21 @@ typedef struct
     int8_t pointer_y;
     int8_t wheel_h;
     int8_t wheel_v;
-} p74_data_t;
+} simple_pointer_data_t;
 
 #define LEFT_CLICK 0x01
 #define RIGHT_CLICK 0x02
 #define MIDDLE_CLICK 0x03
 
-volatile p74_data_t i2c_buf = {0};
+#define CMD_POINTER 0x04
+
+volatile simple_pointer_data_t i2c_buf = {0};
+
+unsigned long latest_i2c_connection_time = 0;
+uint8_t latest_i2c_command = CMD_POINTER;
+
+char *message = (char *)malloc(32);
+unsigned long show_message_limit = 0;
 
 void set_move_size(int16_t step_dx, int16_t step_dy)
 {
@@ -71,6 +79,7 @@ void setup()
 
     auto cfg = M5.config();
     M5Dial.begin(cfg, true, false);
+    sprintf(message, "");
 }
 
 long oldPosition = -999;
@@ -87,19 +96,41 @@ bool first_move = false;
 int t = 0;
 int loop_num = 0;
 
+void show_connection()
+{
+    unsigned long now = millis();
+    if (latest_i2c_connection_time + 1000 < now)
+    {
+        M5Dial.Display.setTextDatum(middle_center);
+        M5Dial.Display.setTextFont(&fonts::Orbitron_Light_32);
+        M5Dial.Display.setTextSize(0.5);
+        M5Dial.Display.drawString("Connection Error", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2);
+        return;
+    }
+
+    if (now < show_message_limit)
+    {
+        M5Dial.Display.setTextDatum(middle_center);
+        M5Dial.Display.setTextFont(&fonts::Orbitron_Light_32);
+        M5Dial.Display.setTextSize(0.5);
+        M5Dial.Display.drawString(message, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2);
+    }
+}
+
 void loop()
 {
     M5Dial.update();
     auto t = M5Dial.Touch.getDetail();
 
+    static constexpr const char *state_name[16] = {
+        "none", "touch", "touch_end", "touch_begin",
+        "___", "hold", "hold_end", "hold_begin",
+        "___", "flick", "flick_end", "flick_begin",
+        "___", "drag", "drag_end", "drag_begin"};
+
     if (prev_state != t.state)
     {
         prev_state = t.state;
-        static constexpr const char *state_name[16] = {
-            "none", "touch", "touch_end", "touch_begin",
-            "___", "hold", "hold_end", "hold_begin",
-            "___", "flick", "flick_end", "flick_begin",
-            "___", "drag", "drag_end", "drag_begin"};
 #if TESTING > 0
         Serial.println(state_name[t.state]);
 #endif
@@ -151,20 +182,39 @@ void loop()
     {
         i2c_buf.click &= ~LEFT_CLICK;
     }
+
+    show_connection();
 }
 
 void receiveEvent(int numBytes)
 {
-    if (numBytes > 0)
+    if (numBytes == 0)
     {
-        for (int i = 0; i < numBytes; i++)
-        {
-            uint8_t b = Wire.read();
-        }
+        return;
+    }
+
+    uint8_t cmd = Wire.read();
+    int i = 1;
+
+    latest_i2c_command = cmd;
+
+    switch (cmd)
+    {
+    case CMD_POINTER:
+        break;
+    default:
+        sprintf(message, "r: n:%d c:%x", numBytes, cmd);
+        show_message_limit = millis() + 1000;
+        break;
+    }
+
+    for (int i = 1; i < numBytes; i++)
+    {
+        uint8_t b = Wire.read();
     }
 }
 
-void sendEvent()
+void send_pointer()
 {
     int n = 0;
     int i;
@@ -177,4 +227,18 @@ void sendEvent()
         Wire.write(raw_buf[i]);
         raw_buf[i] = 0;
     }
+}
+
+void sendEvent()
+{
+    switch (latest_i2c_command)
+    {
+    case CMD_POINTER:
+        send_pointer();
+        break;
+    default:
+        Wire.write(0);
+        break;
+    }
+    latest_i2c_connection_time = millis();
 }
