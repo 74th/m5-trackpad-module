@@ -155,33 +155,21 @@ void i2c_send_event()
     latest_i2c_connection_time = millis();
 }
 
-void setup()
+void touch_event(TouchEvent &e)
 {
+    bool touched = prev_touched;
+    switch (e.type)
+    {
+    case TE_TOUCH:
+        touched = true;
+        break;
+    case TE_RELEASE:
+        touched = false;
+        break;
+    }
 
-#if TESTING > 0
-    Serial.begin(115200);
-    Serial.write("M5Dial I2C Slave\n");
-#else
-    Wire.begin(I2C_SLAVE_ADDRESS, G32, G33, 400000);
-    Wire.onReceive(i2c_receive_event);
-    Wire.onRequest(i2c_send_event);
-#endif
-
-    M5.begin();
-    M5.Lcd.fillScreen(BLACK);
-    sprintf(message, "");
-}
-
-void loop()
-{
-    M5.update();
-    auto touched = M5.Touch.ispressed();
-
-    static constexpr const char *state_name[16] = {
-        "none", "touch", "touch_end", "touch_begin",
-        "___", "hold", "hold_end", "hold_begin",
-        "___", "flick", "flick_end", "flick_begin",
-        "___", "drag", "drag_end", "drag_begin"};
+    sprintf(message, "touch f:%02d type:%04x", e.finger, e.type);
+    show_message_limit = millis() + 1000;
 
     if (prev_touched != touched)
     {
@@ -197,7 +185,7 @@ void loop()
     }
     if (touched)
     {
-        TouchPoint_t p = M5.Touch.getPressPoint();
+        TouchPoint_t p = e.to;
         if (first_touch)
         {
             first_touch = false;
@@ -232,6 +220,28 @@ void loop()
             }
         }
     }
+}
 
+void setup()
+{
+
+#if TESTING > 0
+    Serial.begin(115200);
+    Serial.write("M5Dial I2C Slave\n");
+#else
+    Wire.begin(I2C_SLAVE_ADDRESS, G32, G33, 400000);
+    Wire.onReceive(i2c_receive_event);
+    Wire.onRequest(i2c_send_event);
+#endif
+
+    M5.begin();
+    M5.Lcd.fillScreen(BLACK);
+    M5.Touch.addHandler(touch_event);
+    sprintf(message, "");
+}
+
+void loop()
+{
+    M5.update();
     show_message();
 }
