@@ -1,8 +1,0 @@
-{
-    "sketch": "m5stackcore2-simple-pointer.ino",
-    "output": "build",
-    "configuration": "PSRAM=enabled,PartitionScheme=default,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=16M,UploadSpeed=921600,LoopCore=1,EventsCore=1,DebugLevel=none,EraseFlash=all",
-    "board": "m5stack:esp32:core2",
-    "port": "/dev/ttyACM0",
-    "programmer": "esptool"
-}
