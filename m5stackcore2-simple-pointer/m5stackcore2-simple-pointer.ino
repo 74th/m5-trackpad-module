@@ -15,6 +15,8 @@ typedef struct
     int8_t wheel_v;
 } simple_pointer_data_t;
 
+Button screen_bt(0, 0, M5.Lcd.width(), M5.Lcd.height(), "screen");
+
 #define LEFT_CLICK 0x01
 #define RIGHT_CLICK 0x02
 #define MIDDLE_CLICK 0x03
@@ -28,6 +30,7 @@ uint8_t latest_i2c_command = CMD_POINTER;
 
 char *message = (char *)malloc(32);
 unsigned long show_message_limit = 0;
+unsigned long tap_limit = 0;
 
 void set_move_size(int16_t step_dx, int16_t step_dy)
 {
@@ -62,6 +65,42 @@ void set_move_size(int16_t step_dx, int16_t step_dy)
     else
     {
         i2c_buf.pointer_y = total_dy;
+    }
+}
+
+void set_wheel_move_size(int16_t step_dx, int16_t step_dy)
+{
+    int16_t total_dx = (int16_t)i2c_buf.wheel_v + step_dx;
+    int16_t total_dy = (int16_t)i2c_buf.wheel_h + step_dy;
+
+#if TESTING > 0
+    Serial.println("total: " + String(total_dx) + "," + String(total_dy) + " step: " + String(step_dx) + "," + String(step_dy));
+#endif
+
+    if (total_dx <= -128)
+    {
+        i2c_buf.wheel_v = -128;
+    }
+    else if (total_dx > 127)
+    {
+        i2c_buf.wheel_v = 127;
+    }
+    else
+    {
+        i2c_buf.wheel_v = total_dx;
+    }
+
+    if (total_dy <= -128)
+    {
+        i2c_buf.wheel_h = -128;
+    }
+    else if (total_dy > 127)
+    {
+        i2c_buf.wheel_h = 127;
+    }
+    else
+    {
+        i2c_buf.wheel_h = total_dy;
     }
 }
 
@@ -155,20 +194,51 @@ void i2c_send_event()
     latest_i2c_connection_time = millis();
 }
 
-void touch_event(TouchEvent &e)
+bool second_finger_touch = false;
+
+void touch_event(Event &e)
 {
+    sprintf(message, "touch f:%02d type:%04x", e.finger, e.type);
+
+    // 2nd finger
+    if (e.finger == 1)
+    {
+        switch (e.type)
+        {
+        case E_TOUCH:
+            second_finger_touch = true;
+            break;
+        }
+        return;
+    }
+
     bool touched = prev_touched;
+
     switch (e.type)
     {
-    case TE_TOUCH:
+    case E_TOUCH:
         touched = true;
         break;
-    case TE_RELEASE:
+    case E_RELEASE:
         touched = false;
+        second_finger_touch = false;
+        break;
+    case E_TAP:
+    case E_DBLTAP:
+        if (second_finger_touch)
+        {
+            i2c_buf.click = RIGHT_CLICK;
+        }
+        else
+        {
+            i2c_buf.click = LEFT_CLICK;
+        }
+        tap_limit = millis() + 100;
+        touched = false;
+        second_finger_touch = false;
         break;
     }
 
-    sprintf(message, "touch f:%02d type:%04x", e.finger, e.type);
     show_message_limit = millis() + 1000;
 
     if (prev_touched != touched)
@@ -210,7 +280,14 @@ void touch_event(TouchEvent &e)
                 if (-30 < dx && dx < 30 && -30 < dy && dy < 30)
                 {
                     M5.Lcd.drawCircle(p.x, p.y, 5, RED);
-                    set_move_size(dx, dy);
+                    if (second_finger_touch)
+                    {
+                        set_wheel_move_size(dx, dy);
+                    }
+                    else
+                    {
+                        set_move_size(dx, dy);
+                    }
                     sprintf(message, "d:%d,%d", dx, dy);
                     show_message_limit = millis() + 1000;
                 }
@@ -236,7 +313,7 @@ void setup()
 
     M5.begin();
     M5.Lcd.fillScreen(BLACK);
-    M5.Touch.addHandler(touch_event);
+    M5.Buttons.addHandler(touch_event, E_ALL);
     sprintf(message, "");
 }
 
@@ -244,4 +321,9 @@ void loop()
 {
     M5.update();
     show_message();
+
+    if (tap_limit < millis())
+    {
+        i2c_buf.click = 0;
+    }
 }
