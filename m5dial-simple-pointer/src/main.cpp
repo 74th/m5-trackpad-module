@@ -16,9 +16,6 @@ typedef struct
     int8_t wheel_v;
 } simple_pointer_data_t;
 
-void receiveEvent(int numBytes);
-void sendEvent();
-
 #define LEFT_CLICK 0x01
 #define RIGHT_CLICK 0x02
 #define MIDDLE_CLICK 0x03
@@ -32,6 +29,44 @@ uint8_t latest_i2c_command = CMD_POINTER;
 
 char *message = (char *)malloc(32);
 unsigned long show_message_limit = 0;
+unsigned long latest_message_limit = 0;
+unsigned long tap_limit = 0;
+
+void mprintf(const char *__restrict format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsprintf(message, format, args);
+    va_end(args);
+
+    show_message_limit = millis() + 1000;
+}
+
+void draw_message()
+{
+    if (show_message_limit == 0)
+    {
+        return;
+    }
+
+    auto now = millis();
+
+    if (latest_message_limit != show_message_limit)
+    {
+        M5Dial.Display.fillRect(0, M5Dial.Display.height() / 2 - 10, M5Dial.Display.width(), 20, BLACK);
+        M5Dial.Display.setTextDatum(middle_center);
+        M5Dial.Display.setTextFont(&fonts::Orbitron_Light_32);
+        M5Dial.Display.setTextSize(0.5);
+        M5Dial.Display.setTextColor(ORANGE);
+        M5Dial.Display.drawString(message, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2);
+        latest_message_limit = show_message_limit;
+    }
+    else if (now > show_message_limit)
+    {
+        M5Dial.Display.fillRect(0, M5Dial.Display.height() / 2 - 10, M5Dial.Display.width(), 20, BLACK);
+        show_message_limit = 0;
+    }
+}
 
 void set_move_size(int16_t step_dx, int16_t step_dy)
 {
@@ -69,42 +104,36 @@ void set_move_size(int16_t step_dx, int16_t step_dy)
     }
 }
 
-long oldPosition = -999;
-
-int prev_x = -1;
-int prev_y = -1;
-static m5::touch_state_t prev_state;
-
-int alpha_count = 0;
-
-bool touched = false;
-bool first_move = false;
-
-int t = 0;
-int loop_num = 0;
-
-void show_connection()
+void set_tap()
 {
-    unsigned long now = millis();
-    if (latest_i2c_connection_time + 1000 < now)
-    {
-        M5Dial.Display.setTextDatum(middle_center);
-        M5Dial.Display.setTextFont(&fonts::Orbitron_Light_32);
-        M5Dial.Display.setTextSize(0.5);
-        M5Dial.Display.drawString("Connection Error", M5Dial.Display.width() / 2, M5Dial.Display.height() / 2);
-        return;
-    }
+    i2c_buf.click |= LEFT_CLICK;
+    tap_limit = millis() + 100;
+}
 
-    if (now < show_message_limit)
+void handle_tap()
+{
+    if (tap_limit > 0 && tap_limit < millis())
     {
-        M5Dial.Display.setTextDatum(middle_center);
-        M5Dial.Display.setTextFont(&fonts::Orbitron_Light_32);
-        M5Dial.Display.setTextSize(0.5);
-        M5Dial.Display.drawString(message, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2);
+        i2c_buf.click &= ~LEFT_CLICK;
+        tap_limit = 0;
     }
 }
 
-void receiveEvent(int numBytes)
+int t = 0;
+
+void check_latest_i2c_connection()
+{
+    auto now = millis();
+    if (latest_i2c_connection_time + 1000 < now && show_message_limit < now)
+    {
+        mprintf("no I2C Connection");
+#if TESTING > 0
+        Serial.printf("no I2C Connection");
+#endif
+    }
+}
+
+void i2c_receive_event(int numBytes)
 {
     if (numBytes == 0)
     {
@@ -121,8 +150,7 @@ void receiveEvent(int numBytes)
     case CMD_POINTER:
         break;
     default:
-        sprintf(message, "r: n:%d c:%x", numBytes, cmd);
-        show_message_limit = millis() + 1000;
+        mprintf("r: n:%d c:%x", numBytes, cmd);
         break;
     }
 
@@ -140,14 +168,14 @@ void send_pointer()
     uint8_t *raw_buf = (uint8_t *)&i2c_buf;
 
     Wire.write(raw_buf[0]);
-    for (i = 1; i < 4; i++)
+    for (i = 1; i < 5; i++)
     {
         Wire.write(raw_buf[i]);
         raw_buf[i] = 0;
     }
 }
 
-void sendEvent()
+void i2c_send_event()
 {
     switch (latest_i2c_command)
     {
@@ -161,6 +189,120 @@ void sendEvent()
     latest_i2c_connection_time = millis();
 }
 
+#define TOUCH_SENSITIVITY_MS 200
+
+bool touched = false;
+uint32_t touch_started_at = 0;
+bool moving = false;
+m5::touch_state_t prev_state = m5::none;
+int16_t prev_x = -1;
+int16_t prev_y = -1;
+bool first_move = false;
+
+void handle_touch()
+{
+    auto e = M5Dial.Touch.getDetail();
+
+    if (e.state == m5::none)
+    {
+        return;
+    }
+
+    if (prev_state == e.state && e.x == prev_x && e.y == prev_y)
+    {
+        return;
+    }
+
+    unsigned long now = millis();
+
+#if TESTING > 0
+    Serial.printf("t:%12d s:%4x x:%4d y:%4d\n", now, e.state, e.x, e.y);
+#endif
+
+    if (e.state == m5::touch_begin)
+    {
+        touched = true;
+        moving = false;
+        first_move = true;
+        touch_started_at = now;
+        prev_x = e.x;
+        prev_y = e.y;
+        M5.Lcd.fillRect(0, 10, M5.Lcd.width(), M5.Lcd.height() - 10, BLACK);
+    }
+    else if (e.state == m5::touch_end)
+    {
+        if (!moving && now < touch_started_at + TOUCH_SENSITIVITY_MS)
+        {
+            set_tap();
+            mprintf("tap");
+#if TESTING > 0
+            Serial.printf("left click\n");
+#endif
+        }
+
+        touched = false;
+        moving = false;
+    }
+    if (touched && (e.prev_x != e.x || e.prev_y != e.y))
+    {
+        moving = true;
+    }
+
+    if (moving)
+    {
+        if (first_move)
+        {
+            first_move = false;
+        }
+        else
+        {
+            int16_t dx = e.x - prev_x;
+            int16_t dy = e.y - prev_y;
+            set_move_size(dx, dy);
+            mprintf("move x:%3d y:%3d", dx, dy);
+            M5Dial.Display.drawCircle(e.x, e.y, 5, ORANGE);
+        }
+    }
+
+    prev_state = e.state;
+    prev_x = e.x;
+    prev_y = e.y;
+}
+
+long oldPosition = -999;
+
+void handle_encoder()
+{
+    long newPosition = M5Dial.Encoder.read();
+    if (newPosition != oldPosition)
+    {
+        int8_t d = newPosition - oldPosition;
+        i2c_buf.wheel_v = d;
+        oldPosition = newPosition;
+        mprintf("encoder d:%d", d);
+    }
+}
+
+bool prev_btna_pressed = false;
+
+void handle_button()
+{
+    if (M5Dial.BtnA.isPressed())
+    {
+        i2c_buf.click |= RIGHT_CLICK;
+        if (!prev_btna_pressed)
+        {
+            mprintf("btn a pressed");
+            prev_btna_pressed = true;
+        }
+    }
+    else
+    {
+        i2c_buf.click &= ~RIGHT_CLICK;
+        prev_btna_pressed = false;
+    }
+}
+
 void setup()
 {
 
@@ -170,81 +312,27 @@ void setup()
 #endif
 
     auto cfg = M5.config();
-
+    // cfg.serial_baudrate = 115200;
     M5Dial.begin(cfg, true, false);
-    sprintf(message, "");
+    mprintf("");
 
     Wire.begin(I2C_SLAVE_ADDRESS, G13, G15, 400000);
-    Wire.onReceive(receiveEvent);
-    Wire.onRequest(sendEvent);
+    Wire.onReceive(i2c_receive_event);
+    Wire.onRequest(i2c_send_event);
 }
 
 void loop()
 {
     M5Dial.update();
-    auto t = M5Dial.Touch.getDetail();
 
-    static constexpr const char *state_name[16] = {
-        "none", "touch", "touch_end", "touch_begin",
-        "___", "hold", "hold_end", "hold_begin",
-        "___", "flick", "flick_end", "flick_begin",
-        "___", "drag", "drag_end", "drag_begin"};
+    handle_touch();
+    handle_encoder();
+    handle_button();
+    handle_tap();
 
-    if (prev_state != t.state)
-    {
-        prev_state = t.state;
-#if TESTING > 0
-        Serial.println(state_name[t.state]);
+#if TESTING == 0
+    check_latest_i2c_connection();
 #endif
-        Serial.println(state_name[t.state]);
-        if (t.state == m5::touch_state_t::none)
-        {
-            M5Dial.Display.fillRect(0, 0, 240, 240, BLACK);
-        }
-        if (t.state == m5::touch_state_t::touch_begin)
-        {
-            touched = true;
-            first_move = true;
-            prev_x = t.x;
-            prev_y = t.y;
-        }
-    }
-    if (touched && (prev_x != t.x || prev_y != t.y))
-    {
-        if (first_move)
-        {
-            first_move = false;
-            prev_x = t.x;
-            prev_y = t.y;
-        }
-        else
-        {
-            int16_t dx = t.x - prev_x;
-            int16_t dy = t.y - prev_y;
-            set_move_size(dx, dy);
 
-            prev_x = t.x;
-            prev_y = t.y;
-            M5Dial.Display.drawCircle(t.x, t.y, 5, RED);
-        }
-    }
-
-    long newPosition = M5Dial.Encoder.read();
-    if (newPosition != oldPosition)
-    {
-        int8_t d = newPosition - oldPosition;
-        i2c_buf.wheel_h = d;
-        oldPosition = newPosition;
-    }
-
-    if (M5Dial.BtnA.isPressed())
-    {
-        i2c_buf.click |= LEFT_CLICK;
-    }
-    else
-    {
-        i2c_buf.click &= ~LEFT_CLICK;
-    }
-
-    show_connection();
+    draw_message();
 }
