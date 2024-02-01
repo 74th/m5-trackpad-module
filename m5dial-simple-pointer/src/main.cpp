@@ -114,7 +114,7 @@ void handle_tap()
 {
     if (tap_limit > 0 && tap_limit < millis())
     {
-        i2c_buf.click &= ~LEFT_CLICK;
+        i2c_buf.click = 0;
         tap_limit = 0;
     }
 }
@@ -199,11 +199,14 @@ int16_t prev_x = -1;
 int16_t prev_y = -1;
 bool first_move = false;
 
+bool prev_btna_pressed = false;
+bool dragging = false;
+
 void handle_touch()
 {
     auto e = M5Dial.Touch.getDetail();
 
-    if (e.state == m5::none)
+    if (e.state == m5::none && !touched)
     {
         return;
     }
@@ -229,7 +232,7 @@ void handle_touch()
         prev_y = e.y;
         M5.Lcd.fillRect(0, 10, M5.Lcd.width(), M5.Lcd.height() - 10, BLACK);
     }
-    else if (e.state == m5::touch_end)
+    else if (e.state == m5::touch_end || e.state == m5::none)
     {
         if (!moving && now < touch_started_at + TOUCH_SENSITIVITY_MS)
         {
@@ -238,6 +241,10 @@ void handle_touch()
 #if TESTING > 0
             Serial.printf("left click\n");
 #endif
+        }
+        else
+        {
+            mprintf("release touch");
         }
 
         touched = false;
@@ -259,7 +266,14 @@ void handle_touch()
             int16_t dx = e.x - prev_x;
             int16_t dy = e.y - prev_y;
             set_move_size(dx, dy);
-            mprintf("move x:%3d y:%3d", dx, dy);
+            if (dragging)
+            {
+                mprintf("drag x:%3d y:%3d", dx, dy);
+            }
+            else
+            {
+                mprintf("move x:%3d y:%3d", dx, dy);
+            }
             M5Dial.Display.drawCircle(e.x, e.y, 5, ORANGE);
         }
     }
@@ -283,24 +297,34 @@ void handle_encoder()
     }
 }
 
-bool prev_btna_pressed = false;
-
 void handle_button()
 {
-    if (M5Dial.BtnA.isPressed())
+    bool pressed = M5Dial.BtnA.isPressed();
+    if (pressed == prev_btna_pressed)
     {
-        i2c_buf.click |= RIGHT_CLICK;
-        if (!prev_btna_pressed)
+        return;
+    }
+    if (pressed)
+    {
+        if (touched)
         {
-            mprintf("btn a pressed");
-            prev_btna_pressed = true;
+            mprintf("left click");
+            i2c_buf.click = LEFT_CLICK;
+            dragging = true;
+        }
+        else
+        {
+            mprintf("right click");
+            i2c_buf.click = RIGHT_CLICK;
         }
     }
     else
     {
-        i2c_buf.click &= ~RIGHT_CLICK;
-        prev_btna_pressed = false;
+        mprintf("click release");
+        i2c_buf.click = 0;
+        dragging = false;
     }
+    prev_btna_pressed = pressed;
 }
 
 void setup()
