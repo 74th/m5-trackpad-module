@@ -16,8 +16,3 @@ typedef struct
     int8_t wheel_v;
 } p74_data_t;
 ```
-
-## Note
-
-- M5StackCore2 is multi-touch compatible, but we gave up using it because we could not get two-finger operation as expected.
-  - 🇯🇵 M5StackCore2 はマルチタッチ対応ですが、二本指での操作は、あまり期待通り取得できなかったため、利用を諦めました。
