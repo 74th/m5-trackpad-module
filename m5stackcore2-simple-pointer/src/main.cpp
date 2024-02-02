@@ -98,23 +98,29 @@ void set_move_size(int16_t step_dx, int16_t step_dy)
     }
 }
 
-void set_wheel_size(int16_t step_dy)
+#define WHEEL_DIVIDE 5
+
+int16_t stacked_wheel_v = 0;
+
+void set_wheel_size(int16_t step_dv)
 {
-    int16_t total_dy = (int16_t)i2c_buf.wheel_v + step_dy;
+    int16_t total_dv = ((int16_t)i2c_buf.wheel_v) * WHEEL_DIVIDE + stacked_wheel_v + step_dv;
+    int16_t wheel_v = total_dv / WHEEL_DIVIDE;
+    stacked_wheel_v = total_dv % WHEEL_DIVIDE;
 
     // Serial.println("total: " + String(total_dx) + "," + String(total_dy) + " step: " + String(step_dx) + "," + String(step_dy));
 
-    if (total_dy <= -128)
+    if (wheel_v <= -128)
     {
         i2c_buf.wheel_v = -128;
     }
-    else if (total_dy > 127)
+    else if (wheel_v > 127)
     {
         i2c_buf.wheel_v = 127;
     }
     else
     {
-        i2c_buf.wheel_v = total_dy;
+        i2c_buf.wheel_v = wheel_v;
     }
 }
 
@@ -253,7 +259,7 @@ void handle_first_touch(Event &e, unsigned long now)
 
     if (e.type == E_RELEASE)
     {
-        if (!moving && button_pushing_finger != -1 && now < touch_started_at + TOUCH_SENSITIVITY_MS)
+        if (!moving && button_pushing_finger == -1 && now < touch_started_at + TOUCH_SENSITIVITY_MS)
         {
             if (second_touched)
             {
@@ -341,7 +347,9 @@ void touch_handler(Event &e)
     Button *b = e.button;
 
     unsigned long now = millis();
-    Serial.printf("t:%12d f:%d e:%4x x:%4d y:%4d\n", now, e.finger, e.type, e.to.x, e.to.y);
+    Serial.printf("t:%12d f:%d e:%4x x:%4d y:%4d ", now, e.finger, e.type, e.to.x, e.to.y);
+    Serial.printf("bf:%d ", button_pushing_finger);
+    Serial.printf("\n");
 
     if (handle_left_bottom_zone(e))
     {
