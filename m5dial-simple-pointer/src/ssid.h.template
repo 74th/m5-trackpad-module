@@ -1,0 +1,2 @@
+#define MY_SSID "foo"
+#define MY_SSID_PASSWORD "bar"
