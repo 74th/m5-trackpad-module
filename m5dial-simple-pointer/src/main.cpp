@@ -4,7 +4,6 @@
 #include <webuploader.h>
 
 #define I2C_SLAVE_ADDRESS 0x0B
-#define I2C_BUF_SIZE 5
 
 #define TESTING 0
 
@@ -338,7 +337,6 @@ void setup()
 #endif
 
     auto cfg = M5.config();
-    // cfg.serial_baudrate = 115200;
     M5Dial.begin(cfg, true, false);
     mprintf("");
 
@@ -348,8 +346,7 @@ void setup()
         return;
     }
 
-    Wire
-        .begin(I2C_SLAVE_ADDRESS, G13, G15, 400000);
+    Wire.begin(I2C_SLAVE_ADDRESS, G13, G15, 400000);
     Wire.onReceive(i2c_receive_event);
     Wire.onRequest(i2c_send_event);
 }
