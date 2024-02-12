@@ -43,7 +43,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/m5dial-simple-pointer')
         with:
           files: |
-            m5dial-simple-pointer.bin
+            m5dial-simple-pointer/m5dial-simple-pointer.bin
           body: |
             ```
             esptool.py --chip esp32s3 write_flash -z 0 m5dial-simple-pointer.bin
@@ -78,7 +78,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/m5stackcore2-simple-pointer')
         with:
           files: |
-            m5stackcore2-simple-pointer.bin
+            m5stackcore2-simple-pointer/m5stackcore2-simple-pointer.bin
           body: |
             ```
             esptool.py --chip esp32 write_flash -z 0 m5stackcore2-simple-pointer.bin
@@ -113,7 +113,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/m5dial-pimoroni-trackball-compatible')
         with:
           files: |
-            m5dial-pimoroni-trackball-compatible.bin
+            m5dial-pimoroni-trackball-compatible/m5dial-pimoroni-trackball-compatible.bin
           body: |
             ```
             esptool.py --chip esp32s3 write_flash -z 0 m5dial-pimoroni-trackball-compatible.bin
