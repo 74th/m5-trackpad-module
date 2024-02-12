@@ -1,6 +1,6 @@
 #!/bin/bash
-esptool.py --chip esp32s3 merge_bin \
-  -o m5dial-simple-pointer-merged.bin \
+pio pkg exec -p tool-esptoolpy esptool.py -- --chip esp32s3 merge_bin \
+  -o m5dial-pimoroni-trackball-compatible.bin \
   --flash_mode dio \
   --flash_freq 40m \
   --flash_size 4MB \

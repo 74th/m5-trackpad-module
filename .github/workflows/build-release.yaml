@@ -43,7 +43,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/m5dial-simple-pointer')
         with:
           files: |
-            m5dial-simple-pointer.elf
             m5dial-simple-pointer.bin
           body: |
             ```

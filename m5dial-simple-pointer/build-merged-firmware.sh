@@ -1,5 +1,6 @@
 #!/bin/bash
-~/.platformio/penv/bin/python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 merge_bin \
+set -xe
+pio pkg exec -p tool-esptoolpy esptool.py -- --chip esp32s3 merge_bin \
   -o m5dial-simple-pointer.bin \
   --flash_mode dio \
   --flash_freq 80m \
