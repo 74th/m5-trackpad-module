@@ -36,12 +36,7 @@ jobs:
           cd m5dial-simple-pointer
           cp src/ssid.h.template src/ssid.h
           pio run
-
-      - name: Rename Firmware
-        if: startsWith(github.ref, 'refs/tags/m5dial-simple-pointer')
-        run: |
-          cp m5dial-simple-pointer/.pio/build/m5dial/firmware.elf ./m5dial-simple-pointer.elf
-          cp m5dial-simple-pointer/.pio/build/m5dial/firmware.bin ./m5dial-simple-pointer.bin
+          ./build-merged-firmware.sh
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -50,6 +45,10 @@ jobs:
           files: |
             m5dial-simple-pointer.elf
             m5dial-simple-pointer.bin
+          body: |
+            ```
+            esptool.py --chip esp32s3 write_flash -z 0 m5dial-simple-pointer.bin
+            ```
 
   build-m5stackcore2-simple-pointer:
     runs-on: ubuntu-latest
