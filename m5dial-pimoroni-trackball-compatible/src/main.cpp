@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <M5Dial.h>
 #include <Wire.h>
 
@@ -7,6 +8,9 @@
 #define TESTING 0
 
 #define MULTIPLE 2
+
+void receiveEvent(int numBytes);
+void sendEvent();
 
 volatile uint8_t i2c_buf[I2C_BUF_SIZE] = {0, 0, 0, 0, 0};
 
@@ -67,6 +71,8 @@ void set_move_size(uint16_t step_dx, uint16_t step_dy)
 
 void setup()
 {
+    auto cfg = M5.config();
+    M5Dial.begin(cfg, true, false);
 
 #if TESTING > 0
     Serial.begin(115200);
@@ -76,9 +82,6 @@ void setup()
     Wire.onReceive(receiveEvent);
     Wire.onRequest(sendEvent);
 #endif
-
-    auto cfg = M5.config();
-    M5Dial.begin(cfg, true, false);
 }
 
 long oldPosition = -999;
