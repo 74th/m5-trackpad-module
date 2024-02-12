@@ -21,6 +21,6 @@ jobs:
 
       - name: Build
         run:
-          cd m5dial-simple-pointer
-          cp ssid.h.template ssid.h
+          cd m5dial-simple-pointer;
+          cp ssid.h.template ssid.h;
           pio run
