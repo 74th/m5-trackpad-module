@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'm5dial-simple-pointer/*'
+      - 'm5stackcore2-simple-pointer/*'
+      - 'm5dial-pimoroni-trackball-compatible/*'
   pull_request:
 
 permissions:
