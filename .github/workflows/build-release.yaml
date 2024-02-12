@@ -16,7 +16,7 @@ jobs:
   build-m5dial-simple-pointer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
           path: |
@@ -52,7 +52,7 @@ jobs:
   build-m5stackcore2-simple-pointer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
           path: |
@@ -87,7 +87,7 @@ jobs:
   build-m5dial-pimoroni-trackball-compatible:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
           path: |
