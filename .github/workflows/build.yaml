@@ -1,5 +1,7 @@
 name: build
 on: push
+permissions:
+  contents: write
 
 jobs:
   build-m5dial-simple-pointer:
@@ -12,9 +14,11 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
           key: ${{ runner.os }}-pio
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
@@ -37,3 +41,78 @@ jobs:
           files: |
             m5dial-simple-pointer.elf
             m5dial-simple-pointer.bin
+
+  build-m5stackcore2-simple-pointer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build
+        run: |
+          cd m5stackcore2-simple-pointer
+          cp src/ssid.h.template src/ssid.h
+          pio run
+
+      - name: rename
+        if: startsWith(github.ref, 'refs/tags/m5stackcore2-simple-pointer')
+        run: |
+          cp m5stackcore2-simple-pointer/.pio/build/m5dial/firmware.elf ./m5stackcore2-simple-pointer.elf
+          cp m5stackcore2-simple-pointer/.pio/build/m5dial/firmware.bin ./m5stackcore2-simple-pointer.bin
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/m5stackcore2-simple-pointer')
+        with:
+          files: |
+            m5stackcore2-simple-pointer.elf
+            m5stackcore2-simple-pointer.bin
+
+  build-m5dial-pimoroni-trackball-compatible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build
+        run: |
+          cd m5dial-pimoroni-trackball-compatible
+          cp src/ssid.h.template src/ssid.h
+          pio run
+
+      - name: rename
+        if: startsWith(github.ref, 'refs/tags/m5dial-pimoroni-trackball-compatible')
+        run: |
+          cp m5dial-pimoroni-trackball-compatible/.pio/build/m5dial/firmware.elf ./m5dial-pimoroni-trackball-compatible.elf
+          cp m5dial-pimoroni-trackball-compatible/.pio/build/m5dial/firmware.bin ./m5dial-pimoroni-trackball-compatible.bin
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/m5dial-pimoroni-trackball-compatible')
+        with:
+          files: |
+            m5dial-pimoroni-trackball-compatible.elf m5dial-pimoroni-trackball-compatible.bin
