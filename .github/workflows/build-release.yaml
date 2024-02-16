@@ -47,6 +47,7 @@ jobs:
           body: |
             ```
             esptool.py --chip esp32s3 write_flash -z 0 m5dial-simple-pointer.bin
+            espflash write-bin 0 m5dial-simple-pointer.bin
             ```
 
   build-m5stackcore2-simple-pointer:
@@ -82,6 +83,7 @@ jobs:
           body: |
             ```
             esptool.py --chip esp32 write_flash -z 0 m5stackcore2-simple-pointer.bin
+            espflash write-bin 0 m5stackcore2-simple-pointer.bin
             ```
 
   build-m5dial-pimoroni-trackball-compatible:
@@ -117,4 +119,5 @@ jobs:
           body: |
             ```
             esptool.py --chip esp32s3 write_flash -z 0 m5dial-pimoroni-trackball-compatible.bin
+            espflash write-bin 0 m5dial-pimoroni-trackball-compatible.bin
             ```
